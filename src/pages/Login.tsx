@@ -13,9 +13,9 @@ const Login: React.FC = () => {
 
   const login = async () => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (e: any) {
-      setError("Wrong email or password");
+      setError("Email ou mot de passe incorrect.");
     }
   };
 
@@ -23,22 +23,22 @@ const Login: React.FC = () => {
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>Login</IonTitle>
+          <IonTitle>Connexion</IonTitle>
         </IonToolbar>
       </IonHeader>
       <IonContent className="ion-padding">
         <IonItem>
           <IonInput label="Email" type="email" value={email}
-            onIonInput={(e) => setEmail(e.detail.value!)} />
+            onIonInput={(e) => setEmail(e.detail.value ?? "")} />
         </IonItem>
         <IonItem>
-          <IonInput label="Password" type="password" value={password}
-            onIonInput={(e) => setPassword(e.detail.value!)} />
+          <IonInput label="Mot de passe" type="password" value={password}
+            onIonInput={(e) => setPassword(e.detail.value ?? "")} />
         </IonItem>
         {error && <IonText color="danger"><p>{error}</p></IonText>}
-        <IonButton expand="block" onClick={login}>Login</IonButton>
+        <IonButton expand="block" onClick={login}>Se connecter</IonButton>
         <IonButton expand="block" fill="clear" routerLink="/register">
-          Create an account
+          Créer un compte
         </IonButton>
       </IonContent>
     </IonPage>

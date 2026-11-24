@@ -16,5 +16,8 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Paste your TMDB API Key (v3) between the quotes
-export const TMDB_KEY = "PASTE_YOUR_TMDB_KEY";
+// TMDB API credentials
+export const TMDB_API_KEY = "7abf11b6ce47702ffe68952c66e12e34";
+export const TMDB_ACCESS_TOKEN =
+  "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI3YWJmMTFiNmNlNDc3MDJmZmU2ODk1MmM2NmUxMmUzNCIsIm5iZiI6MTc5NTU0MDkxOS4wNzIsInN1YiI6IjZiMDVjN2I3ZDRlMjI5ZjJkZjkxYzkwNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Jmi9HdBayKG1DTv5OYhUuRoJNP2d5m7IwXIoY-MVAUM";
+export const TMDB_KEY = TMDB_ACCESS_TOKEN;

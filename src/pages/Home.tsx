@@ -1,84 +1,127 @@
 import { useEffect, useState } from "react";
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonList,
-  IonItem, IonThumbnail, IonLabel, IonButton, IonButtons,
+  IonItem, IonThumbnail, IonLabel, IonButton, IonButtons, IonSearchbar,
 } from "@ionic/react";
 import { signOut } from "firebase/auth";
 import { collection, getDocs, doc, updateDoc, arrayUnion } from "firebase/firestore";
-import { auth, db, TMDB_KEY } from "../firebase";
-
-const API = "https://api.themoviedb.org/3";
-const IMG = "https://image.tmdb.org/t/p/w200";
+import { auth, db } from "../firebase";
+import {
+  TMDB_IMG_URL,
+  FALLBACK_MOVIES,
+  getPopularMovies,
+  searchMovies,
+  getMovieDetails,
+} from "../tmdb";
 
 const Home: React.FC = () => {
   const [movies, setMovies] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    load();
+    loadMovies();
   }, []);
 
-  const load = async () => {
-    // 1. Movies from TMDB
-    const res = await fetch(`${API}/movie/popular?api_key=${TMDB_KEY}`);
-    const data = await res.json();
-    const tmdb = data.results.map((m: any) => ({
-      id: "tmdb" + m.id,
-      tmdbId: m.id,
-      title: m.title,
-      poster: m.poster_path ? IMG + m.poster_path : "",
-      year: (m.release_date || "").slice(0, 4),
-      custom: false,
-    }));
-    // 2. Movies added by the admin
-    const snap = await getDocs(collection(db, "movies"));
-    const mine = snap.docs.map((d) => ({ id: d.id, ...d.data(), custom: true }));
-    setMovies([...mine, ...tmdb]);
+  const loadMovies = async (query = "") => {
+    let tmdbList: any[] = [];
+    try {
+      const data = query.trim()
+        ? await searchMovies(query.trim())
+        : await getPopularMovies(1);
+
+      tmdbList = (data?.results || []).map((m: any) => ({
+        id: "tmdb" + m.id,
+        tmdbId: m.id,
+        title: m.title,
+        poster: m.poster_path ? `${TMDB_IMG_URL}${m.poster_path}` : "",
+        year: (m.release_date || "").slice(0, 4),
+        custom: false,
+      }));
+    } catch (e) {
+      const q = query.toLowerCase().trim();
+      tmdbList = q
+        ? FALLBACK_MOVIES.filter((m) => m.title.toLowerCase().includes(q))
+        : FALLBACK_MOVIES;
+    }
+
+    try {
+      // Films ajoutés par l'administrateur
+      const snap = await getDocs(collection(db, "movies"));
+      const mine = snap.docs
+        .map((d) => ({ id: d.id, ...d.data(), custom: true } as any))
+        .filter((m) => !query || m.title?.toLowerCase().includes(query.toLowerCase()));
+      setMovies([...mine, ...tmdbList]);
+    } catch (e) {
+      setMovies(tmdbList);
+    }
+  };
+
+  const handleSearch = (val: string) => {
+    setSearchQuery(val);
+    loadMovies(val);
   };
 
   const addFavorite = async (m: any) => {
-    let fav: any;
-    if (m.custom) {
-      fav = {
-        id: m.id, title: m.title, poster: m.poster, year: m.year,
-        genres: m.genres, actors: m.actors,
-      };
-    } else {
-      const res = await fetch(
-        `${API}/movie/${m.tmdbId}?api_key=${TMDB_KEY}&append_to_response=credits`
-      );
-      const d = await res.json();
-      fav = {
-        id: m.id,
-        title: d.title,
-        poster: m.poster,
-        year: (d.release_date || "").slice(0, 4),
-        genres: d.genres.map((g: any) => g.name),
-        actors: d.credits.cast.slice(0, 5).map((a: any) => a.name),
-      };
+    if (!auth.currentUser) return;
+    try {
+      let fav: any;
+      if (m.custom) {
+        fav = {
+          id: m.id,
+          title: m.title,
+          poster: m.poster || "",
+          year: m.year,
+          genres: m.genres || [],
+          actors: m.actors || [],
+        };
+      } else {
+        const d = await getMovieDetails(m.tmdbId);
+        fav = {
+          id: m.id,
+          title: d.title || m.title,
+          poster: d.poster_path ? `${TMDB_IMG_URL}${d.poster_path}` : m.poster || "",
+          year: (d.release_date || m.year || "").slice(0, 4),
+          genres: d.genres ? d.genres.map((g: any) => g.name) : [],
+          actors: d.credits?.cast ? d.credits.cast.slice(0, 5).map((a: any) => a.name) : [],
+        };
+      }
+      await updateDoc(doc(db, "users", auth.currentUser.uid), {
+        favorites: arrayUnion(fav),
+      });
+      alert("Ajouté aux favoris !");
+    } catch (e: any) {
+      console.error("Erreur ajout favori:", e);
+      alert("Erreur: " + (e.message || e));
     }
-    await updateDoc(doc(db, "users", auth.currentUser!.uid), {
-      favorites: arrayUnion(fav),
-    });
-    alert("Added to favorites!");
   };
 
   return (
     <IonPage>
       <IonHeader>
         <IonToolbar>
-          <IonTitle>Movies</IonTitle>
+          <IonTitle>Films</IonTitle>
           <IonButtons slot="end">
-            <IonButton onClick={() => signOut(auth)}>Logout</IonButton>
+            <IonButton onClick={() => signOut(auth)}>Déconnexion</IonButton>
           </IonButtons>
+        </IonToolbar>
+        <IonToolbar>
+          <IonSearchbar
+            value={searchQuery}
+            placeholder="Rechercher un film..."
+            debounce={400}
+            onIonInput={(e) => handleSearch(e.detail.value ?? "")}
+          />
         </IonToolbar>
       </IonHeader>
       <IonContent>
         <IonList>
           {movies.map((m) => (
             <IonItem key={m.id}>
-              <IonThumbnail slot="start">
-                <img src={m.poster} alt={m.title} />
-              </IonThumbnail>
+              {m.poster && (
+                <IonThumbnail slot="start">
+                  <img src={m.poster} alt={m.title} />
+                </IonThumbnail>
+              )}
               <IonLabel>
                 <h2>{m.title}</h2>
                 <p>{m.year}</p>

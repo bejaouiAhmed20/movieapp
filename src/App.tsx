@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Redirect, Route } from "react-router-dom";
+import { Navigate, Route } from "react-router-dom";
 import {
   IonApp, IonRouterOutlet, IonTabs, IonTabBar, IonTabButton,
   IonIcon, IonLabel, setupIonicReact,
@@ -34,14 +34,18 @@ const App: React.FC = () => {
     return onAuthStateChanged(auth, async (u) => {
       let currentUser: any = u;
       if (u) {
-        const snap = await getDoc(doc(db, "users", u.uid));
-        const data = snap.data();
-        if (data && data.active === false) {
-          await signOut(auth);
-          alert("Your account has been deactivated.");
-          currentUser = null;
-        } else {
-          setRole(data?.role || "user");
+        try {
+          const snap = await getDoc(doc(db, "users", u.uid));
+          const data = snap.data();
+          if (data && data.active === false) {
+            await signOut(auth);
+            alert("Votre compte a été désactivé par l'administrateur.");
+            currentUser = null;
+          } else {
+            setRole(data?.role || "user");
+          }
+        } catch (e) {
+          console.error("Erreur chargement profil utilisateur:", e);
         }
       }
       setUser(currentUser);
@@ -57,20 +61,20 @@ const App: React.FC = () => {
         {user ? (
           <IonTabs>
             <IonRouterOutlet>
-              <Route exact path="/home" component={Home} />
-              <Route exact path="/favorites" component={Favorites} />
-              <Route exact path="/matching" component={Matching} />
-              <Route exact path="/admin" component={Admin} />
-              <Route render={() => <Redirect to="/home" />} />
+              <Route path="/home" element={<Home />} />
+              <Route path="/favorites" element={<Favorites />} />
+              <Route path="/matching" element={<Matching />} />
+              <Route path="/admin" element={role === "admin" ? <Admin /> : <Navigate to="/home" replace />} />
+              <Route path="*" element={<Navigate to="/home" replace />} />
             </IonRouterOutlet>
             <IonTabBar slot="bottom">
               <IonTabButton tab="home" href="/home">
                 <IonIcon icon={film} />
-                <IonLabel>Movies</IonLabel>
+                <IonLabel>Films</IonLabel>
               </IonTabButton>
               <IonTabButton tab="favorites" href="/favorites">
                 <IonIcon icon={heart} />
-                <IonLabel>Favorites</IonLabel>
+                <IonLabel>Favoris</IonLabel>
               </IonTabButton>
               <IonTabButton tab="matching" href="/matching">
                 <IonIcon icon={people} />
@@ -86,9 +90,9 @@ const App: React.FC = () => {
           </IonTabs>
         ) : (
           <IonRouterOutlet>
-            <Route exact path="/login" component={Login} />
-            <Route exact path="/register" component={Register} />
-            <Route render={() => <Redirect to="/login" />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </IonRouterOutlet>
         )}
       </IonReactRouter>
